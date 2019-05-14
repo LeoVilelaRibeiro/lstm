@@ -1,0 +1,52 @@
+Aplicação em Python fonte: https://www.monolitonimbus.com.br/machine-learning-de-series-temporais-lstm/
+
+Existem módulos em python que fazem a implementação do LSTM através do módulos tensorflow, theano e keras – muito comuns na área de “data science”, assim como o numpy, o pandas, o scikit-learn e o matplotlib. Eles podem ser instalados usando o pip, conforme segue (via terminal Linux):
+
+sudo apt install python-pip # caso não tenha o instalador pip
+pip install --upgrade pip # caso não tenha o instalador pip
+sudo pip install tensorflow
+sudo pip install theano
+sudo pip install keras
+1
+2
+3
+4
+5
+sudo apt install python-pip # caso não tenha o instalador pip
+pip install --upgrade pip # caso não tenha o instalador pip
+sudo pip install tensorflow
+sudo pip install theano
+sudo pip install keras
+O script desenvolvido nessa aplicação (lstm_ex.py) é o resultado de uma mistura desses dois posts do site Machine Learning Mastery:
+
+Time Series Forecasting with the Long Short-Term Memory Network in Python
+Multivariate Time Series Forecasting with LSTMs in Keras
+O primeiro link oferece um tutorial para ajustar um modelo LSTM em uma série de 3 anos de dados mensais de vendas e fazer uma projeção dessa variável. O segundo link também possui um tutorial para aplicar LSTM, mas com dados horários de algumas variáveis meteorológicos. Neste caso, o objetivo é prever a poluição do ar em função de seu próprio histórico e o de outras variáveis – ou seja, um estudo multivariado.
+
+O objetivo aqui é usar o histórico de dados mensais de três variáveis (var_x, var_y e var_z) para gerar a projeção de uma delas (var_y), de modo que os valores de todas as variáveis sejam considerados. Como esses valores possuem uma considerável correlação, é de se esperar que ajudem a melhorar a previsão (e reduzam o valor de RMSE). Uma das variáveis (var_z) possui uma defasagem nos melhores valores de correlação, mas foram utilizados no script sem tratamento prévio. Esta defasagem foi revelada por um gráfico de CCF (correlação cruzada), revelando maiores valores de correlação com um lag/defasagem de 3 a 4 meses – não foi implementado, mas na função “series_to_supervised” pode ser incluído o cálculo para esse lag e usar o tempo “t-3” ou “t-4” em vez de “t-1”.
+
+O script em python está disponível no GitHub/lstm. Nele, primeiramente são carregados o módulos e fixada uma semente (para o numpy e para o tensorflow), de modo a tornar os resultados reprodutíveis quando rodar o script novamente.
+
+Após definição de funções, o primeiro bloco de código lê os arquivos com os dados mensais de entrada, cada série em um arquivo e com o seguinte padrão:
+
+date,value
+YYYY-MM-01,FFF.FF
+1
+2
+date,value
+YYYY-MM-01,FFF.FF
+Os valores são concatenados em uma data frame conforme as datas. O segundo bloco deve fazer um gráfico das variáveis em função do tempo.
+
+No terceiro bloco, os dados são normalizados (terem valores entre 0 e 1) e é chamada a função para criar a estrutura de dados para aprendizado supervisionado, além de excluir as colunas que não serão utilizadas (dados em “t” que não são de var_y). Essa função recebe como argumento a sequência de observações como uma lista ou matriz NumPy, o número de observações de atraso como entrada (X), o número de observações como saída (y) e um booleano para indicar se deve ou não descartar linhas com valores NaN, retornando uma DataFrame Pandas com as séries enquadradas para aprendizado supervisionado. Mais informações sobre essa função podem ser vistas no post How to Convert a Time Series to a Supervised Learning Problem in Python.
+
+O quarto bloco divide os dados em parte para treinamento e parte para testes (nesse caso, os últimos 12 meses), além de dividir em dados de entrada (dados do tempo “t-1”) e saída (somente última coluna, dados do tempo “t”). Também deixa tudo no formato [amostras, passo de tempo, padrões].
+
+O próximo bloco tem como objetivo primeiro montar o modelo de redes neurais conforme o número de neurônios (neurons), o número de amostras que serão propagadas pela rede (batch_size) e o número de ciclos/épocas a serem repetidos (epochs). O modelo sequencial é uma pilha linear de camadas – mais informações no link Getting started with the Keras Sequential model. Estão definidas a função de perda (loss) como o erro médio absoluto (MAE, de “Mean Absolute Error”) e o otimizador (optimizer) versão Adam do gradiente estocástico descendente (SGD, de “Stochastic gradient descent”). Além disso, é plotado um gráfico da perda em função do número de épocas, para avaliar o número necessário de ciclos a serem utilizados – veja como interpretar esse gráfico no link How to interpret “loss” and “accuracy” for a machine learning model.
+
+No bloco seguinte, é usado o modelo desenvolvido para fazer uma projeção, “desinverter” os valores normalizados e calcular o RMSE. Em seguida, é feito um gráfico dos valores previstos e dos valores de teste (observados, mas desconsiderados para fazer o modelo).
+
+Rodando o script para algumas combinações de variáveis exógenas, são observados diferentes valores de RMSE (mantendo a mesma semente, definida no início do código). Para isso, deve-se remover a(s) respectiva(s) coluna(s) nas duas linhas com o comando “drop”. A combinação que possuir menor erro pode ser escolhida para fazer previsões operacionalmente. Nesse caso, deve-se não separar em períodos de treino e de teste, de modo que a previsão já comece no final do período de treino.
+
+Os gráficos gerados das séries temporais (series.png), da perda em função do número de épocas (loss.png) e da comparação entre a série de teste original e da gerada pelo modelo treinado (test_and_train.png) estão disponíveis para visualização no GitHub/lstm, assim como o script e os dados de entrada.
+
+Cada vez mais pesquisadores usam redes neurais recorrentes em vez de redes neurais unidirecionais para previsão de séries temporais. O uso de MLP gera bons resultados em muitos conjuntos de dados e ainda é muito implementado.
